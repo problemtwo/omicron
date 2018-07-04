@@ -1,5 +1,5 @@
 // set x = 0;
-// set f = (x,y) -> (x; y; );
+// set f = func (x,y) -> {x; y;};
 // call f(1,2)
 // if x then y else z
 
@@ -7,8 +7,8 @@ class Tokenizer {
 	constructor(text) {
 		this.text = text;
 		this.pos = 0;
-		this.ops = ['<>','=','<=','>=','%=','-=','*=','>','(',',',
-              '+=','+','/','-','*','!','<','/=',';',')','->'];
+		this.ops = ['<>','=','<=','->','>=','%=','-=','*=','>','(',',',
+              '+=','+','/','-','*','!','<','/=',';',')','->','{','}'];
 	}
 	get(){return this.text[this.pos];}
 	peek(){return this.pos+1 < this.text.length ? this.text[this.pos+1] : undefined;}
@@ -59,9 +59,12 @@ class Tokenizer {
 };
 
 let symtable = {};
-symtable.println = function(arg){
-	console.log(arg);
+symtable.define = function(name,callback) {
+ symtable[name] = callback;
 }
+symtable.define('println',function(arg) {
+ console.log(arg);
+});
 
 class Entity {};
 
@@ -91,7 +94,7 @@ class IdentifierEntity extends Entity {
 		this.token = token;
 	}
 	start(){
-		return this.token.value;
+		return symtable[this.token.value];
 	}
 };
 
@@ -105,6 +108,31 @@ class AssignmentEntity extends Entity {
 		return symtable[this.lval.token.value] = this.rval.start();
 	}
 };
+
+class FunctionEntity extends Entity {
+ constructor(name,args,body){
+  super();
+  this.name = name;
+  this.args = args;
+  this.body = body;
+  if(typeof this.name !== 'undefined'){
+   symtable[this.name] = this.start();
+  }
+ }
+ start(){
+  const _this = this;
+  return function(...args) {
+   for(let i=0;i<args.length;i++){
+    symtable[_this.args[i].token.value] = args[i];
+   }
+   let r = _this.body.start();
+   for(let i=0;i<args.length;i++){
+    symtable[_this.args[i].token.value] = undefined;
+   }
+   return r;
+  };
+ }
+}
 
 class FunctionCallEntity extends Entity {
 	constructor(name,args){
@@ -148,7 +176,7 @@ class ParentheticalEntity extends Entity {
 		this.expr = expr;
 	}
 	start(){
-		return this.expr.start();
+		return typeof this.expr === 'undefined' ? 0 : this.expr.start();
 	}
 };
 
@@ -158,12 +186,32 @@ class ClauseEntity extends Entity {
 		this.stmts = stmts;
 	}
 	start(){
+  if(this.stmts.length === 0){return undefined;}
 		for(let i=0;i<this.stmts.length-1;i++){
 			this.stmts[i].start();
 		}
 		return this.stmts[this.stmts.length-1].start();
 	}
 };
+
+class OperatorExpression {
+ constructor(expr){
+  this.expr = expr;
+ }
+ start(){
+  let val = this.expr[0].start();
+  for(let i=1;i<this.expr.length;i+=2){
+   const operator = this.expr[i].value;
+   if     (operator === '+'){val += this.expr[i+1].start();}
+   else if(operator === '-'){val -= this.expr[i+1].start();}
+   else if(operator === '*'){val *= this.expr[i+1].start();}
+   else if(operator === '/'){val /= this.expr[i+1].start();}
+   else if(operator === '%'){val %= this.expr[i+1].start();}
+  }
+  if(parseInt(val) !== NaN){return parseInt(val);}
+  return val;
+ }
+}
 
 class ParsingException {
 	constructor(message) {
@@ -195,12 +243,17 @@ class Parser {
 		this.expect('call'); // call
 		const lval = this.parseEntity(); // variable name (ex. x)
 		this.expect('(') // (
-		const args = [this.parseExpr()];
-		while(!this.EOF() && this.get().value !== ')'){
-			this.expect(',');
-			args.push(this.parseExpr());
-		}
-		if(this.EOF()){throw new ParsingException('Expected ) got EOF.');}
+  let args;
+  if(this.get().value === ')'){
+   args = [] 
+  }else{
+   args = [this.parseExpr()];
+   while(!this.EOF() && this.get().value !== ')'){
+    this.expect(',');
+    args.push(this.parseExpr());
+   }
+   if(this.EOF()){throw new ParsingException('Expected ) got EOF.');}
+  }
 		this.expect(')');
 		return new FunctionCallEntity(lval,args);
 	}
@@ -217,7 +270,10 @@ class Parser {
 	}
 	parseParens(){
 		this.expect('(');
-		const expr = this.parseExpr();
+  let expr;
+  if(this.get().value !== ')'){
+   expr = this.parseExpr();
+  }
 		this.expect(')');
 		return new ParentheticalEntity(expr);
 	}
@@ -229,6 +285,29 @@ class Parser {
 		}
 		return new ClauseEntity(stmts);
 	}
+ parseFunc(){
+  this.expect('func');
+  let name = undefined;
+  if(this.get().type === 'identifier'){
+   name = this.consume().value;
+  }
+  this.expect('(');
+  let args;
+  if(this.get().value === ')'){
+   args = []
+  }
+  else{
+   args = [this.parseExpr()];
+   while(!this.EOF() && this.get().value !== ')'){
+    this.expect(',');
+    args.push(this.parseExpr());
+   }
+   this.expect(')');
+  }
+  this.expect('->');
+  const body = this.parseClause();
+  return new FunctionEntity(name,args,body);
+ }
 	EOF(){return this.pos >= this.tokens.length;}
 	parseEntity(){
 		if(this.EOF()){throw new ParsingException('Expected entity got EOF.');}
@@ -254,6 +333,8 @@ class Parser {
 						return this.parseCall();
 					case 'if':
 						return this.parseIf();
+     case 'func':
+      return this.parseFunc();
 					default:
 						return new IdentifierEntity(this.consume());
 				}
@@ -268,7 +349,7 @@ class Parser {
 			expr.push(this.consume());
 			expr.push(this.parseEntity());
 		}
-		return expr.length === 1 ? expr[0] : expr;
+		return expr.length === 1 ? expr[0] : new OperatorExpression(expr);
 	}
 	start(){
 		const lines = [];
@@ -279,6 +360,3 @@ class Parser {
 	}
 };
 
-const input = 'call println(\'It works!!!!!!!!!!!!!!!!!\')'
-const lines = new Parser(new Tokenizer(input).start()).start();
-lines.forEach(line => line.start());
