@@ -13,7 +13,7 @@ Omicron was built to make web game development super easy.
 ```
 
 ### Syntax
-To assign a variable, simply use the 'set' keyword. (semi-colons are required).
+To assign a variable, simply use the 'set' keyword (semi-colons are required).
 ```
  set x = 0;
 ```
