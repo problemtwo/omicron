@@ -13,28 +13,20 @@ Omicron was built to make web game development super easy.
 ```
 
 ### Syntax
-To assign a variable, simply use the 'set' keyword (semi-colons are required).
-```
- set x = 0;
-```
-You can assign a variable to a string, a number, or even a function.
-```
- set y = func(a,b){return a*b;};
-```
-Or you can assign a function like this
-```
- func y (a , b){return a * b ;} ;
-```
-Wait, but what if I want to call that function?
-```
- call y(1,2)
-```
-Can my function return a value?
-```
+```javascript
  'Comments are written like this'
- set x = call y(2,3) '6'
-```
-(The return value of your function is the last value in the function. For example...)
-```
- func returnExample(){'do some stuff here'; 6;}; 'This function returns 6'
+ 'To assign a variable, simply use the 'set' keyword (semi-colons are required).'
+ set x = 0;
+ 'You can assign a variable to a string, a number, or even a function.'
+ set num = 1
+ set string = 'Just another string/comment/print function argument...'
+ set y = func(a,b){return a\*b;};
+ 'You can also declare a function like this.'
+ func y(a,b){return a\*b;};
+ 'Calling a function is pretty self-explanatory.'
+ call y(1,2);
+ 'Just because there is no return keyword, doesn't meant that your function cannot return a value.'
+ 'The last value of your function will be the value that is returned.'
+ set returnExample = func () {'just another bit of code/string/comment/print function argument...';6}
+ call returnExample() ' <--- 6'
 ```
