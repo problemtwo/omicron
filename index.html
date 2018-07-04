@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset='utf-8' />
+		<style type='text/css'>
+   @import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono');
+			html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}
+   #input{background:rgba(255,255,255,0.99);color:rgba(102,102,204,0.99);width:calc(50% - 6px);
+          height:100%;float:left;resize:none;
+          border:solid 3px #666;outline:0;margin:0;padding:0;font-family:'Ubuntu Mono';
+          font-size:200%;line-height:100%;}
+   #input::-moz-selection{background:rgba(102,102,204,0.99);color:rgba(255,255,255,0.99);}
+   #input::selection{background:rgba(102,102,204,0.99);color:rgba(255,255,255,0.99);}
+   #reg-output{width:calc(50% - 6px);height:50%;float:left;border:solid 3px #666;margin:0;padding:0;}
+   #graphical-output{border:solid 3px #666;}
+		</style>
+  <script src='omicron.js'></script> 
+  <script>
+   window.onload = function(){
+    const canvas = document.getElementById('graphical-output');
+    const context = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth * .49;
+    canvas.height = window.innerHeight * .49;
+
+    window.onresize = function() {
+     canvas.width = window.innerWidth * .49;
+     canvas.height = window.innerHeight * .49;
+    };
+
+    symtable.define('println',function(arg){
+     writeHTML(arg);
+    });
+    symtable.define('clear',function(){
+     context.clearRect(0,0,canvas.width,canvas.height);
+    });
+    symtable.define('rect',function(x,y,w,h,color){
+     context.fillStyle = color;
+     context.fillRect(x,y,w,h);
+    });
+    symtable.define('text',function(text,color,x,y,alignX,alignY){
+     console.log(text,color,x,y,alignX,alignY);
+     context.fillStyle = color;
+     context.textAlign = alignX;
+     context.textBaseline = alignY;
+     context.fillText(text,x,y);
+    });
+    symtable.define('font',function(font){context.font = font;});
+    symtable.define('screenW',function(){
+     return canvas.width;
+    });
+    symtable.define('screenH',function(){
+     return canvas.height;
+    });
+    symtable.define('loop',function(callback,fps){
+     symtable['_animate_' + callback] = setInterval(symtable[callback],1000/fps);
+    });
+    symtable.define('endloop',function(callback){
+     clearInterval(symtable['_animate_' + callback]);
+    });
+    symtable.define('js',function(code){
+     return eval(code);
+    });
+
+    // Made with help from https://stackoverflow.com/questions/1763479/how-to-get-the-html-for-a-dom-element-in-javascript
+    function getHTML(el){
+     const wrapper = document.createElement('div');
+     wrapper.appendChild(el.cloneNode(true));
+     return wrapper.innerHTML;
+    }
+    // Made with help from https://stackoverflow.com/questions/620881/putting-html-inside-an-iframe-using-javascript
+    function writeHTML(html){
+     document.getElementById('reg-output').innerHTML = html;
+    }
+
+    function run(){
+     const input = document.getElementById('input').value;
+     let i = 1;
+     writeHTML("");
+     try {
+      const lines = new Parser(new Tokenizer(input).start()).start();
+      lines.forEach(line => {line.start();i++;});
+     } catch (ex) {
+      writeHTML('Line ' + i + ' ' + ex.message);
+     }
+    }
+
+    let ctrl = false;
+    document.getElementById('input').onkeydown = function(e){
+     if(ctrl && e.which === 13){e.preventDefault();run();}
+     else if(e.which === 17){ctrl = true;}
+    }
+    document.getElementById('input').onkeyup = function(e){
+     if(e.which === 17){ctrl = false;}
+    }
+   }
+  </script>
+	</head>
+ <body>
+  <textarea id='input' placeholder='~' spellcheck='false'></textarea>
+  <div id='reg-output'></div>
+  <canvas id='graphical-output'></canvas>
+ </body>
+</html>
